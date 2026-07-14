@@ -1,13 +1,15 @@
 import os
 import cv2
+from insightface.app import FaceAnalysis
 import pandas as pd
 from deepface import DeepFace
 
-PASTA_TESTES = os.environ.get("DATASET_PATH")
+app = FaceAnalysis(name="buffalo_l", providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+app.prepare(ctx_id=0,det_size=(320,320))
+
+PASTA_TESTES = '/mnt/hdexterno/VGGFACE2/'
 
 stats = {
-    "imagens_invalidas": 0,
-    "sem_face": 0,
     "homens": 0,
     "mulheres": 0,
     "idade_0_6": 0,
@@ -17,6 +19,8 @@ stats = {
     "idade_31_45": 0,
     "idade_46_60": 0,
     "idade_61_100": 0,
+    "emocao": {},
+    "racas": {}
 }
 
 for root, dirs, files in os.walk(PASTA_TESTES):
@@ -25,24 +29,14 @@ for root, dirs, files in os.walk(PASTA_TESTES):
             continue
         caminho = os.path.join(root, arquivo)
         img = cv2.imread(caminho)
-        if img is None:
-            print(f"[WARN] Falha ao ler imagem: {caminho}")
-            stats["imagens_invalidas"] += 1
-            stats["sem_face"] += 1
-            continue
-        analysis = DeepFace.analyze(img, actions=["age", "gender"], enforce_detection=False)
-        if isinstance(analysis, dict):
-            analysis = [analysis]
+        faces = app.get(img)
+        analysis = DeepFace.analyze(img, actions=["age", "gender", "race", "emotion"], enforce_detection=False)
 
-        if len(analysis) == 0:
-            stats["sem_face"] += 1
-            continue
-        
-        for face in analysis:
+        for face in faces:
             g = face["gender"]
             idade = face["age"]
 
-            if g["Man"] > g["Woman"]:
+            if g == 1:
                 stats["homens"] += 1
             else:
                 stats["mulheres"] += 1
@@ -61,7 +55,14 @@ for root, dirs, files in os.walk(PASTA_TESTES):
                 stats["idade_46_60"] += 1
             elif idade < 101:
                 stats["idade_61_100"] += 1
-            
+
+
+        for face in analysis:
+            emotion = face["dominant_emotion"]
+            raca = face["dominant_race"]
+
+            stats["emocao"][emotion] = stats["emocao"].get(emotion, 0) + 1
+            stats["racas"][raca] = stats["racas"].get(raca, 0) + 1
 
 print(stats)
 df = pd.DataFrame([stats])

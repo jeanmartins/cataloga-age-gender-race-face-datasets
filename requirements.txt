@@ -1,6 +1,7 @@
 torch>=1.10.0
-tensorflow==2.13.1
-keras==2.13.1
-deepface
 opencv-python
+insightface
+onnxruntime-gpu
 pandas
+deepface
+tf-keras
